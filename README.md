@@ -1,290 +1,356 @@
 # iot-telemetry-pricing-calculator
 
-This project is for creating a UX template to calculate the estimated price of an IOT telemetry order dependent on device type, telemetry network (ex. satellite constellation), activation fee, monthly device subscription, number of devices, unit message price, mobile-originated (MO) message interval, number of mobile-terminated messages (variable), and duration of device deployment.
+This project is for creating a UX template to calculate the estimated price of an IOT telemetry order dependent on telemetry network (ex. satellite constellation), activation fee, monthly subscription fee, unit message fee, number of devices, mobile-originated message interval or total number of mobile-terminated messages, and duration of device deployment.
 
-### Device Fees
+### Network Fees
 
-*Sample Device Fees Below*
+_Sample Network Fees Below_
 
-| Device Type (deviceType)  | Activation Fee ($) (activationFee) | Monthly Fee ($) (monthlyFee)  | Unit Message Fee ($) (unitMessageFee) |
-| --- | --- | --- | --- |
-| AwesomeDevice                         | 50.00                                  | 50.00                             | 0.25                       |
-| CoolDevice                         | 100.00                                  | 100.00                             | 0.50                       |
-| AmazingDevice                         | 200.00                                  | 200.00                             | 1.00                       |
+| Network Name (networkName) | Activation Fee ($) (activationFee) | Monthly Fee ($) (monthlyFee) | Unit Message Fee ($) (messageFee) |
+| -------------------------- | ---------------------------------- | ---------------------------- | --------------------------------- |
+| AwesomeSatelliteNetwork    | 50.00                              | 50.00                        | 0.25                              |
+| CoolSatelliteNetwork       | 100.00                             | 100.00                       | 0.50                              |
+| AmazingSatelliteNetwork    | 200.00                             | 200.00                       | 1.00                              |
 
 ```
-interface IDeviceFee {
-   deviceType: string;
-   activationFee: string; // RESOLVE: Duplicate With Network
-   monthlyFee: number; // RESOLVE: Duplicate With Network
-   unitMessageFee: number; // RESOLVE: Duplicate With Network
+interface INetwork {
+   networkName: string;
+   activationFee: number;
+   monthlyFee: number;
+   messageFee: number;
 }
 
-// Sample Devices Below
-
-const awesomeDeviceFee: IDeviceFee = {
-   deviceType: 'AwesomeDevice',
+awesomeSatelliteNetwork: INetwork = {
+   networkName: 'AwesomeSatelliteNetwork',
    activationFee: 50,
    monthlyFee: 50,
    unitMessageFee: 0.25,
 };
 
-const coolDeviceFee: IDeviceFee = {
-   deviceType: 'CoolDevice',
+coolSatelliteNetwork: INetwork = {
+   networkName: 'CoolSatelliteNetwork',
    activationFee: 100,
    monthlyFee: 100,
-   unitMessageFee: 0.5
+   unitMessageFee: 0.50,
 };
 
-const amazingDeviceFee: IDeviceFee = {
-   deviceType: 'AwesomeDevice',
+amazingSatelliteNetwork: INetwork = {
+   networkName: 'AmazingSatelliteNetwork',
    activationFee: 200,
    monthlyFee: 200,
-   unitMessageFee: 1
+   unitMessageFee: 1,
 };
 ```
 
 ### Device Deployments
 
-*Sample Deployment Below*
-| Device Type (deviceType)  | Message Interval (messageIntervalInMinutes) | Deployment Duration (deploymentDurationInDays)  |
+_Sample Deployment Below_
+| Network Name (networkName) | Message Interval (messageInterval) | Deployment Duration (deploymentDuration) |
 | --- | --- | --- |
-| AwesomeDevice                         | 1440                                  | 186                             | 0.25                       |
-| CoolDevice                         | 60                                  | 15                             | 0.50                       |
-| AmazingDevice                                       | 15                             | 365.25                       |
+| AwesomeSatelliteNetwork| { minutes: 1 } | { months: 6 } |
+| CoolSatelliteNetwork | { hours: 2 } | { days: 10 } |
+| AmazingSatelliteNetwork | { days: 1 } | { years: 1 } |
 
 ```
-interface IDeviceDeployment {
-   deviceType: DeviceType;
-   messageIntervalInMinutes: number;
-   deploymentDurationInDays: number;
+// Time Related Interfaces
+
+interface ITime {
+	minutes?: number;
+	hours?: number;
+	days?: number;
+	months?: number;
+	years?: number;
 }
 
-interface IDeploymentDuration {
-   days?: number;
-   months?: number;
-   years?: number;
-}
+type DeploymentDuration = Pick<ITime, 'days' | 'months' | 'years'>;
+type MessageInterval = Pick<ITime, 'minutes' | 'hours' | 'days'>;
 
-interface ITimeByUnit {
-   minutes?: number;
-   hours?: number;
-   days?: number;
-   months?: number;
-   years?: number;
-}
+// Semi-Pseudo Code Below For Pricing Calculations...
 
-const minutesInOneHour = 60;
+minutesInOneHour = 60;
 
-const minutesInOneDay = 1440;
+minutesInOneDay = 1440;
 
-const daysInOneMonth = 31; // Overestimate
+daysInOneMonth = 31; // Overestimate; TODO: Incorporate Timeline
 
-const daysInOneYear = 366; // Overestimate
+daysInOneYear = 366; // Overestimate; TODO: Incorporate Timeline
 
-const monthsInOneYear = 12;
+monthsInOneYear = 12;
 
-const calculateMessageIntervalInMinutes = ({ minutes, hours }: ITimeByUnit) => { // TODO: Error Handling | 24 Hours Max. & 10 Minutes Min.
-  return (minutes ?? 0) + ((hours ?? 0) * minutesInOneHour);
-}
+calculateMonthsOfDeploymentDuration = ({
+	days,
+	months,
+	years,
+}) => {
+	monthsInDays = days / daysInOneMonth;
 
-const calculateTransmissionsPerDayFromMessageInterval = (minutes: number) => {
-   return minutesInOneDay / minutes;
-}
+	literalMonths = months;
 
-const calculateDaysOfDeploymentDuration = ({ days, months, years }: IDeploymentDuration): number = {
-  return (days ?? 0) + ((months ?? 0) * daysInOneMonth) + ((years ?? 0) * daysInOneYear);
-}
+	monthsInYears  = years * monthsInOneYear;
 
-const calculateMonthsOfDeploymentDuration = ({ days, months, years}: IDeploymentDuration): number = {
-   return ((days ?? 0) / daysInOneMonth) + (months ?? 0) + ((years ?? 0) * monthsInOneYear);
-}
-
-const calculateTotalTransmissionsFromDuration = (messageInterval: ITimeByUnit, deploymentDuration: IDeploymentDuration) => {
-   const messageIntervalInMinutes = calculateMessageIntervalInMinutes(messageInterval);
-
-   const transmissionsPerDay = calculateTransmissionsPerDayFromMessageInterval(messageIntervalInMinutes);
-
-   const deploymentDurationInDays = calculateDaysOfDeploymentDuration(deploymentDuration);
-
-   return transmissionsPerDay * deploymentDurationInDays;
-}
-
-const awesomeDeviceDeployment: IDeviceDeployment = {
-   deviceType: 'AwesomeDevice',
-   messageIntervalInMinutes: 30,
-   deploymentDurationInDays: 15
+	return monthsInDays + literalMonths + monthsInYears;
 };
 
-const coolDeviceDeployment: IDeviceDeployment = {
-   deviceType: 'CoolDevice',
-   messageIntervalInMinutes: 60,
-   deploymentDurationInDays: 31, // Entered 1 Month
-}
+calculateTotalServiceCost = ({
+	unitFee,
+	quantity,
+}) => {
+	totalServiceCost = unitFee * quantity;
 
-const amazingDeviceDeployment: IDeviceDeployment = {
-   deviceType: 'CoolDevice',
-   messageIntervalInMinutes: 720,
-   deploymentDurationInDays: 366, // Entered 1 Year
-}
-```
-
-### Networks
-
-```
-interface INetwork {
-   networkName: string; // AwesomeSatelliteNetwork
-   activationFee: number; // RESOLVE: Duplicate With Device Fee
-   monthlyFee: number; // RESOLVE: Duplicate With Device Fee
-   unitMessageFee: number; // RESOLVE: Duplicate With Device Fee
-   deviceTypes: string[];
-}
-
-const awesomeSatelliteNetwork: INetwork = {
-   networkName: 'AwesomeSatelliteNetwork',
-   activationFee: 50,
-   monthlyFee: 50,
-   unitMessageFee: 0.25,
-   deviceTypes: ['AwesomeDevice']
+	return {
+		unitFee,
+		quantity,
+		totalServiceCost,
+	};
 };
 
-const coolSatelliteNetwork: INetwork = {
-   networkName: 'CoolSatelliteNetwork',
-   activationFee: 100,
-   monthlyFee: 100,
-   unitMessageFee: 0.50,
-   deviceTypes: ['CoolDevice']
+calculateTotalActivationsCost = ({
+	network,
+}) => {
+	unitFee = network.activationFee;
+
+	quantity = 1;
+
+	return calculateTotalServiceCost({ unitFee, quantity });
 };
 
-const amazingSatelliteNetwork: INetwork = {
-   networkName: 'AmazingSatelliteNetwork',
-   activationFee: 200,
-   monthlyFee: 200,
-   unitMessageFee: 1,
-   deviceTypes: ['AmazingDevice']
+calculateTotalMonthlySubscriptionsCost = ({
+	network,
+	deploymentDuration,
+}): ITotalServiceCost => {
+	unitFee = network.monthlyFee;
+
+	quantity  = calculateMonthsOfDeploymentDuration({
+		days: deploymentDuration.days,
+		months: deploymentDuration.months,
+		years: deploymentDuration.years,
+	});
+
+	return calculateTotalServiceCost({ unitFee, quantity });
+};
+
+calculateMessageIntervalInMinutes = ({
+	minutes,
+	hours,
+	days,
+}) => {
+	numberOfMinutesInMinutes = minutes;
+
+	numberOfMinutesInHours = hours * minutesInOneHour;
+
+	numberOfMinutesInDays = days * minutesInOneDay;
+
+	totalMessageIntervalInMinutes =
+		numberOfMinutesInMinutes + numberOfMinutesInHours + numberOfMinutesInDays;
+
+	return totalMessageIntervalInMinutes;
+};
+
+calculateTransmissionsPerDayFromMessageInterval = ({
+	minutes,
+	hours,
+	days,
+}) => {
+	messageIntervalInMinutes = calculateMessageIntervalInMinutes({
+		minutes,
+		hours,
+		days,
+	});
+
+	transmissionsPerDay = minutesInOneDay / messageIntervalInMinutes;
+
+	return transmissionsPerDay;
+};
+
+calculateDaysOfDeploymentDuration = ({
+	days,
+	months,
+	years,
+}) => {
+	return (
+		days + months * daysInOneMonth + years * daysInOneYear
+	);
+};
+
+calculateTotalTransmissionsFromDuration = ({
+	messageInterval,
+	deploymentDuration,
+}) => {
+	transmissionsPerDay = calculateTransmissionsPerDayFromMessageInterval(messageInterval);
+
+	deploymentDurationInDays = calculateDaysOfDeploymentDuration(deploymentDuration);
+
+	totalTransmissions = transmissionsPerDay * deploymentDurationInDays;
+
+	return totalTransmissions;
+};
+
+calculateTotalDataServicesCost = ({
+	network,
+	deploymentDuration,
+	messageInterval,
+}) => {
+	unitFee = network.messageFee;
+
+	quantity = calculateTotalTransmissionsFromDuration({
+		deploymentDuration,
+		messageInterval,
+	});
+
+	return calculateTotalServiceCost({ unitFee, quantity });
+};
+
+calculateTotalCost = ({
+	totalActivationsCost,
+	totalMonthlySubscriptionsCost,
+	totalDataServicesCost,
+}) => {
+	return (
+		totalActivationsCost?.totalServiceCost +
+		totalMonthlySubscriptionsCost?.totalServiceCost +
+		totalDataServicesCost?.totalServiceCost
+	);
 };
 ```
 
 ### Customer Interface
 
 ```
-const currentNetwork = 'AwesomeSatelliteNetwork';
+currentNetwork = 'AwesomeSatelliteNetwork';
 
-const currentDevice = 'AwesomeDevice'; // RESOLVE: Duplicate Values
-
-const currentMessageInterval: ITimeByUnit = {
-   hours: 24
+currentMessageInterval = {
+   days: 1
 }
 
-const currentDeploymentDuration: IDeploymentDuration = {
+currentDeploymentDuration = {
    months: 6,
 }
-
-const currentNumberOfDevices = 5;
 ```
 
 ### Activations Cost
 
 ```
-const getTotalActivationsCost = (numberOfDevices: number, network: INetwork) => {
-   const totalActivationsCost = currentNumberOfDevices * network.activationFee;
-};
+calculateTotalActivationsCost = ({
+	network,
+}) => {
+	unitFee = network.activationFee;
 
-const currentTotalActivationsCost = getTotalActivationsCost = (currentNumberOfDevices, currentNetwork);
+	quantity = 1;
+
+	return calculateTotalServiceCost({ unitFee, quantity });
+};
 ```
 
 ### Monthly Subscriptions Cost
 
 ```
+calculateTotalMonthlySubscriptionsCost = ({
+	network,
+	deploymentDuration,
+}): ITotalServiceCost => {
+	unitFee = network.monthlyFee;
 
-const getTotalMonthlySubscriptionsCosts = (numberOfDevices: number, network: INetwork, deploymentDuration: IDuration) = {
-   const deploymentDurationInMonths = calculateMonthsOfDeploymentDuration(currentDeploymentDuration);
+	quantity  = calculateMonthsOfDeploymentDuration({
+		days: deploymentDuration.days,
+		months: deploymentDuration.months,
+		years: deploymentDuration.years,
+	});
 
-   return numberOfDevices * network.monthlyFee * deploymentDurationInMonths;
-}
-
-const currentTotalMonthlySubscriptionsCosts = (currentNumberOfDevices, awesomeSatelliteNetwork, currentDeploymentDuration);
+	return calculateTotalServiceCost({ unitFee, quantity });
+};
 ```
 
 ### Data Services Costs
 
 ```
-const getTotalDataServicesCosts = (numberOfDevices: number, network: INetwork, deploymentDuration: IDuration, messageInterval: ITimeByUnit) => {
-   const totalTransmissionsFromDuration = calculateTotalTransmissionsFromDuration(messageInterval, deploymentDuration)
+calculateTotalDataServicesCost = ({
+	network,
+	deploymentDuration,
+	messageInterval,
+}) => {
+	unitFee = network.messageFee;
 
-   const totalTransmissionsPerDevice = totalTransmissionFromDuration * network.unitMessageFee;
+	quantity = calculateTotalTransmissionsFromDuration({
+		deploymentDuration,
+		messageInterval,
+	});
 
-   return numberOfDevices * totalTransmissionsPerDevice;
-}
+	return calculateTotalServiceCost({ unitFee, quantity });
+};
 
-const currentTotalDataServicesCost = getTotalDataServicesCost(currentNumberOfDevices, awesomeSatelliteNetwork, currentDeploymentDuration, currentMessageInterval);
 ```
-
 
 ### Total Cost
 
 ```
-const getTotalCost = (totalActivationsCost: number, totalMonthlySubscriptionsCost: number, totalDataServicesCost: number) => {
-  return totalActivationsCost + totalMonthlySubscriptionsCosts + totalDataServicesCost;
+calculateTotalCost = ({
+	totalActivationsCost,
+	totalMonthlySubscriptionsCost,
+	totalDataServicesCost,
+}) => {
+	return (
+		totalActivationsCost?.totalServiceCost +
+		totalMonthlySubscriptionsCost?.totalServiceCost +
+		totalDataServicesCost?.totalServiceCost
+	);
 };
-
-const currentTotalCost = getTotalCost(currentTotalActivationsCost, currentTotalMonthlySubscriptionsCosts, currentTotalDataServicesCost);
 ```
 
-###  Invoice (I'm No Accountant...) [0.0.1]
+### Invoice (I'm No Accountant...) [0.0.2]
 
 **Activations**
 
-| Device | Network | Activated | Fee ($) |
-| --- | --- | --- | --- |
-| AwesomeDevice1 | AwesomeSatelliteNetwork | 1/1/2025 | 50.00 |
-| AwesomeDevice2 | AwesomeSatelliteNetwork | 1/1/2025 | 50.00 |
-| AwesomeDevice3 | AwesomeSatelliteNetwork | 1/1/2025 | 50.00 |
-| AwesomeDevice4 | AwesomeSatelliteNetwork | 1/1/2025 | 50.00 |
-| AwesomeDevice5 | AwesomeSatelliteNetwork | 1/1/2025 | 50.00 |
-| --- | --- | --- | --- |
-| --- | --- | **Total Cost ($)** | **250.00** |
+| Device        | Network                 | Activated          | Fee ($)    |
+| ------------- | ----------------------- | ------------------ | ---------- |
+| AwesomeDevice | AwesomeSatelliteNetwork | 1/1/2025           | 50.00      |
+| CoolDevice    | CoolSatelliteNetwork    | 1/1/2025           | 100.00     |
+| AmazingDevice | AmazingSatelliteNetwork | 1/1/2025           | 200.00     |
+| ---           | ---                     | ---                | ---        |
+| ---           | ---                     | **Total Cost ($)** | **350.00** |
 
 **Monthly Subscriptions**
 
-| Device | Network | Plan | Monthly Fee ($) | Number Of Months | Fee ($) |
-| --- | --- | --- | --- | --- | --- |
-| AwesomeDevice1 | AwesomeSatelliteNetwork | Awesome Plan | 50.00 | 6 | 300.00 |
-| AwesomeDevice2 | AwesomeSatelliteNetwork | Awesome Plan | 50.00 | 6 | 300.00 |
-| AwesomeDevice3 | AwesomeSatelliteNetwork | Awesome Plan | 50.00 | 6 | 300.00 |
-| AwesomeDevice4 | AwesomeSatelliteNetwork | Awesome Plan | 50.00 | 6 | 300.00 |
-| AwesomeDevice5 | AwesomeSatelliteNetwork | Awesome Plan | 50.00 | 6 | 300.00 |
-| --- | --- | --- | --- | --- | --- |
-| --- | --- | --- | --- | **Total ($)** | **1500.00** |
+| Device        | Network                 | Plan         | Monthly Fee ($) | Number Of Months | Fee ($)     |
+| ------------- | ----------------------- | ------------ | --------------- | ---------------- | ----------- |
+| AwesomeDevice | AwesomeSatelliteNetwork | Awesome Plan | 50.00           | 6                | 300.00      |
+| CoolDevice    | CoolSatelliteNetwork    | Cool Plan    | 100.00          | 6                | 600.00      |
+| AmazingDevice | AmazingSatelliteNetwork | Amazing Plan | 200.00          | 6                | 1200.00     |
+| ---           | ---                     | ---          | ---             | ---              | ---         |
+| ---           | ---                     | ---          | ---             | **Total ($)**    | **2100.00** |
 
 **Data Services**
 
-| Device | Network | Message Transmission Rate | Number Of Months | Total Number Of Messages | Unit Message Price ($) | Fee ($) |
-| --- | --- | --- | --- | --- | --- | --- |
-| AwesomeDevice1 | AwesomeSatelliteNetwork | 24 Hours | 6 | 180 | 0.25 | 45.00 |
-| AwesomeDevice2 | AwesomeSatelliteNetwork | 24 Hours | 6 | 180 | 0.25 | 45.00 |
-| AwesomeDevice3 | AwesomeSatelliteNetwork | 24 Hours | 6 | 180 | 0.25 | 45.00 |
-| AwesomeDevice4 | AwesomeSatelliteNetwork | 24 Hours | 6 | 180 | 0.25 | 45.00 |
-| AwesomeDevice5 | AwesomeSatelliteNetwork | 24 Hours | 6 | 180 | 0.25 | 45.00 |
-| --- | --- | --- | --- | --- | **Total ($)** | **225.00** |
+| Device        | Network                 | Message Transmission Rate | Number Of Months | Total Number Of Messages | Unit Message Price ($) | Fee ($)      |
+| ------------- | ----------------------- | ------------------------- | ---------------- | ------------------------ | ---------------------- | ------------ |
+| AwesomeDevice | AwesomeSatelliteNetwork | { minutes: 1 }            | 6                | 267840                   | 0.25                   | 66960.00     |
+| CoolDevice    | CoolSatelliteNetwork    | { hours: 2 }              | 6                | 2232                     | 0.50                   | 1116.00      |
+| AmazingDevice | AmazingSatelliteNetwork | { days: 1 }               | 6                | 186                      | 1.00                   | 186.00       |
+| ---           | ---                     | ---                       | ---              | ---                      | **Total ($)**          | **68262.00** |
 
 **Total Cost**
 
-| Service | Cost ($) |
-| --- | --- |
-| Activations | 250.00 |
-| Monthly Subscriptions | 1500.00 |
-| Messages | 225.00 |
-| --- | --- |
-| **Total Due** | **1975.00**|
+| Service               | Cost ($)     |
+| --------------------- | ------------ |
+| Activations           | 350.00       |
+| Monthly Subscriptions | 2100.00      |
+| Data                  | 68262.00     |
+| ---                   | ---          |
+| **Total Due ($)**     | **70712.00** |
 
 ### Potential Improvements
 
-- Refactor Calculation Methods (More General)
-  - `calculateTransmissionsPerDayFromMessageInterval`
-  - `calculateTotalTransmissionsFromDuration`
-  - `calculateDaysOfDeploymentDuration`
-  - `getDurationInMonths`
+- Refactor Calculation Methods
+- Coding Practices
+  - Reusable Components
+  - Reusable Methods
+  - Standardize
+    - Spacing
+    - Colors
+    - Fonts
+    - Dimensions
+    - Naming
+      - Components
+      - Methods
 - Remove Duplicates Between Network & Devices
   - Add Device-Dependent Costs
 - Add Plan
@@ -297,8 +363,12 @@ const currentTotalCost = getTotalCost(currentTotalActivationsCost, currentTotalM
   - Minute
   - Hour
   - Day
-  - Month
-  - Year
+  - Set Maximum
+  - Set Minimum
+- Message Size
+  - Minimum Charge (Included Bytes)
+  - Price Per Byte
+  - Maximum Bytes Per Message
 - Deployment Duration
   - Day
   - Month
@@ -308,7 +378,10 @@ const currentTotalCost = getTotalCost(currentTotalActivationsCost, currentTotalM
   - Unit Message
 - Schedule
   - Deployment Dates (Activations & Deactivations)
-  - Changing Message Rates
+  - Message Rate Lifecycle
     - MO
     - MT
-- Mobile Terminated (MT) Messages (MT Confirmation Messages Included)
+- Mobile Terminated (MT) Messages $0.25
+  - MT Confirmation (MC) Messages $0.00
+- Download Quote As PDF
+- Send Email
